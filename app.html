@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #e3f2fd;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        h2 {
+            background: #007bff;
+            color: white;
+            padding: 15px;
+            margin: 0;
+        }
+        form {
+            background: white;
+            padding: 20px;
+            width: 50%;
+            margin: 20px auto;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        input, button {
+            margin: 5px;
+            padding: 10px;
+            width: 80%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        table {
+            width: 80%;
+            margin: 20px auto;
+            background: white;
+            border-collapse: collapse;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        th {
+            background: #007bff;
+            color: white;
+        }
+        .edit, .delete {
+            padding: 8px 12px;
+            border: none;
+            cursor: pointer;
+            margin: 2px;
+            color: white;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .edit { background: #28a745; }
+        .delete { background: #dc3545; }
+    </style>
+</head>
+<body>
+
+    <h2>Student Record Management System</h2>
+
+    <!-- Student Form -->
+    <form id="addStudentForm">
+        <input type="text" id="studentId" placeholder="Student ID" required>
+        <input type="text" id="name" placeholder="Name" required>
+        <input type="number" id="age" placeholder="Age" required>
+        <input type="text" id="grade" placeholder="Grade" required>
+        <button type="submit">Add Student</button>
+    </form>
+
+    <!-- Student Table -->
+    <table>
+        <thead>
+            <tr>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Age</th>
+                <th>Grade</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="studentTable"></tbody>
+    </table>
+
+    <!-- Firebase & JavaScript -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, setDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKt5YnlSW4qwgaW6wEkpsiJIXlm4SBGac",
+            authDomain: "stud-rec-manag-sys.firebaseapp.com",
+            projectId: "stud-rec-manag-sys",
+            storageBucket: "stud-rec-manag-sys.firebasestorage.app",
+            messagingSenderId: "753166107526",
+            appId: "1:753166107526:web:5d82caaf1b506964b26207",
+            measurementId: "G-FGYXKP4ND6"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Function to Check if Student ID Exists
+        async function studentIdExists(studentId) {
+            const querySnapshot = await getDocs(collection(db, "students"));
+            for (const document of querySnapshot.docs) {
+                if (document.id === studentId) {
+                    return true; // Student ID already exists
+                }
+            }
+            return false;
+        }
+
+        // Function to Add Student
+        async function addStudent(studentId, name, age, grade) {
+            try {
+                if (await studentIdExists(studentId)) {
+                    alert("Student ID already exists. Please use a unique ID.");
+                    return;
+                }
+
+                await setDoc(doc(db, "students", studentId), { name, age, grade });
+                alert("Student added successfully!");
+                document.getElementById("addStudentForm").reset();
+                fetchStudents(); // Refresh list
+            } catch (e) {
+                console.error("Error adding student: ", e);
+            }
+        }
+
+        // Function to Get Students
+        async function fetchStudents() {
+            const studentTable = document.getElementById("studentTable");
+            studentTable.innerHTML = "";
+            const querySnapshot = await getDocs(collection(db, "students"));
+            
+            querySnapshot.forEach((doc) => {
+                const student = doc.data();
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${doc.id}</td>
+                    <td>${student.name}</td>
+                    <td>${student.age}</td>
+                    <td>${student.grade}</td>
+                    <td>
+                        <button class="edit" onclick="editStudent('${doc.id}', '${student.name}', '${student.age}', '${student.grade}')">Edit</button>
+                        <button class="delete" onclick="deleteStudent('${doc.id}')">Delete</button>
+                    </td>
+                `;
+
+                studentTable.appendChild(row);
+            });
+        }
+
+        // Function to Edit Student
+        async function editStudent(id, name, age, grade) {
+            const newName = prompt("Edit Name:", name);
+            const newAge = prompt("Edit Age:", age);
+            const newGrade = prompt("Edit Grade:", grade);
+
+            if (newName && newAge && newGrade) {
+                await updateDoc(doc(db, "students", id), {
+                    name: newName,
+                    age: newAge,
+                    grade: newGrade
+                });
+                alert("Student updated successfully!");
+                fetchStudents();
+            }
+        }
+
+        // Function to Delete Student
+        async function deleteStudent(id) {
+            if (confirm("Are you sure you want to delete this student?")) {
+                await deleteDoc(doc(db, "students", id));
+                alert("Student deleted successfully!");
+                fetchStudents();
+            }
+        }
+
+        // Event Listener for Form Submission
+        document.getElementById("addStudentForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const studentId = document.getElementById("studentId").value;
+            const name = document.getElementById("name").value;
+            const age = document.getElementById("age").value;
+            const grade = document.getElementById("grade").value;
+            await addStudent(studentId, name, age, grade);
+        });
+
+        // Fetch Students on Page Load
+        fetchStudents();
+    </script>
+</body>
+</html>
